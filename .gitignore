@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+
+/.quarto/
+GDCdata
+TCGA_HN_Analysis_files
+TCGA_HN_Analysis_cache
+tcga_data.RDS

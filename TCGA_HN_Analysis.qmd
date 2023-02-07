@@ -1,11 +1,183 @@
 ---
 title: "TCGA_HN_Analysis"
+author: "Chrysostomos Tornari"
+execute:
+  cache: true
+format:
+  html: 
+    code-fold: true
+    toc: true
 ---
 
-## Quarto
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+## Background
+
+### Disclaimer
+This is based on [this tutorial](https://www.youtube.com/watch?v=oyAn5B-vLus). I have followed this tutorial including the explanatory text in-between code blocks but adapted this for H&N cancers.
+
+### Aim
+
+I want to try and gain insights from the cancer genome atlas which may be applicable to Head & Neck cancer. A PubMed search on "(cancer genome atlas OR TCGA) AND neck AND cancer AND (SCC OR squamous)" on 06/02/2023 revealed 1407 papers so this kind of analysis is unlikely to represent anything too new.
 
 ```{r}
-1 + 1
+#| warning: false
+# if (!requireNamespace('BiocManager', quietly = TRUE))
+#     install.packages('BiocManager')
+# BiocManager::install('TCGAbiolinks')
+library("TCGAbiolinks")
+# BiocManager::install('limma')
+library("limma")
+# BiocManager::install('edgeR')
+library("edgeR")
+library("glmnet")
+library("factoextra")
+library("FactoMineR")
+library("caret")
+library("SummarizedExperiment")
+library("gplots")
+library("survival")
+library("survminer")
+library("RColorBrewer")
+# BiocManager::install('clusterProfiler')
+library("clusterProfiler")
+# BiocManager::install('genefilter')
+library("genefilter")
 ```
+
+## TCGA Head & Neck Carcinoma Information
+
+In this analysis I will look at a number of Head & Neck cancer data from the above database. Head & Neck cancer is referred to as HNSC in TCGA. You can then filter by subsite and explore the data though different subsites have quite different sample sizes. This can be seen in [this table](https://portal.gdc.cancer.gov/projects/TCGA-HNSC).
+
+The TCGA biolinks package installed and loaded in the above code block provides matching donors across different data tables and facilitates R analysis. There are some particularly important functions:
+
+- GDCquery allows you to investigate TCGA
+- GDCdownload downloads raw versions of the desired files
+- GDCprepare puts them into an R-analysable format
+
+You can use head(getGDCprojects()) to look at the available projects but I already knwow the identity of the project I need from manually browsing [TCGA](https://portal.gdc.cancer.gov/) and searching for H&N. Here is a summary of the H&N SCC data:
+
+```{r}
+TCGAbiolinks::getProjectSummary("TCGA-HNSC")
+```
+
+## RNAseq
+
+The example starts by looking at RNAseq. This is something relatively new to me as it's a next-generation sequencing approach that gained popularity since my PhD. It is a technique that analyses the quantity and sequencing of RNA in a sample. It analyses the transcriptome. Although it sounds like you directly analyse RNA rather than using reverse transcriptase to generate cDNA, this is not true. cDNA is generated and next-generation sequencing applied. It is  a quantitative technique as it can provide transcription levels.Finally, it also captures splice variants and post-transcriptional modifications. Filtering steps to deplete tRNA and rRNA can be applied to leave just mRNA if this is desired.
+
+### HNSC RNAseq data
+
+As per the example, I will first look at the 'Transcriptome Profiling' within the population of interest. Though the example statest that we will use 'HTSeq' counts they actually use STAR Counts. STAR stands for Spliced Transcripts Alignment to a Reference. It is an accurate and fast method of aligning reads to a reference genome.For every read presented, this algorithm will search for the longest sequence that exactly matches the reference genome. It will then try to match the rest of the unmatched read (e.g. to the next exon in the genome). It includes strategies to manage mismatches and deletions.
+
+I first got the STAR-counts for all HNSCCs in the database
+
+```{r}
+#| results: hide
+# I changed an "=" in the below statement to "<-"
+
+query_TCGA <- GDCquery(
+  project = "TCGA-HNSC",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  data.type = "Gene Expression Quantification",
+  experimental.strategy = "RNA-Seq",
+  #workflow.type = "HTSeq - Counts"
+  workflow.type = "STAR - Counts"
+)
+```
+
+This returns a data frame which contains another dataframe in [1,1]. this is a summary of the columns in the [1,1] df:
+
+```{r}
+colnames(getResults(query_TCGA))
+```
+
+On exploring the full dataframe I agree with the exercise that the type of samples are of interest:
+
+```{r}
+getResults(query_TCGA) %>% 
+  dplyr::select(sample_type) %>% 
+  hablar::convert(hablar::fct(sample_type)) %>% 
+  summary() # Can also use table() as last statement
+```
+
+Given the poor representation of metastases in this dataset there is no point in further analysing this set at the time of writing. The walk-through tells us how to re-generate the dataset without these. This seems very inefficient (as per a lot of the code) but I will do it this way to prevent future errors as I am unfamiliar with GDCquery...
+
+```{r}
+#| results: hide
+query_TCGA <- GDCquery(
+  project = "TCGA-HNSC",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  data.type = "Gene Expression Quantification",
+  experimental.strategy = "RNA-Seq",
+  #workflow.type = "HTSeq - Counts"
+  workflow.type = "STAR - Counts",
+  sample.type = c("Primary Tumor", "Solid Tissue Normal") # beware American spelling
+)
+```
+
+I'll just check that this new dataset has the right sample types:
+
+```{r}
+getResults(query_TCGA) %>% 
+  dplyr::select(sample_type) %>% 
+  hablar::convert(hablar::fct(sample_type)) %>% 
+  summary() 
+```
+
+I am doing this analysis as a project so that I don't have to worry about the working directory. When GDCdownload gets the relevant files to the above query (which is currently just a list of the files) it will put them in the working directory. If you have downloaded this project from GitHub then the files will be downloaded into the project directory where a new directory called "GDCdata" will be created.
+
+```{r}
+#| results: hide
+GDCdownload(query = query_TCGA)
+```
+
+I will now read the data into r.
+
+```{r}
+#| results: hide
+tcga_data <- GDCprepare(query_TCGA)
+```
+
+For the selected H&N SCC primary and normal samples we have `r dim(tcga_data)[1]` rows and `r dim(tcga_data)[2]` columns. Here are the columns available:
+
+```{r}
+colnames(colData(tcga_data))
+```
+
+Some useful figures:
+
+```{r}
+table(tcga_data@colData$vital_status)
+table(tcga_data@colData$ajcc_pathologic_stage)
+table(tcga_data@colData$definition)
+table(tcga_data@colData$tissue_or_organ_of_origin)
+table(tcga_data@colData$gender)
+table(tcga_data@colData$race)
+dim(assay(tcga_data))
+head(rowData(tcga_data))
+```
+
+```{r}
+# Save the data as a file, if you need it later, you can just load this file
+# instead of having to run the whole pipeline again
+saveRDS(object = tcga_data,
+        file = "tcga_data.RDS",
+        compress = FALSE)
+tcga_data <- readRDS(file = "tcga_data.RDS")
+```
+
+## RNASeq Normalization
+
+To compare expression levels between groups (differential expression) you need to normalize the data as it can't be compared in its raw form. The exercise explains that a "pipeline" is often used for this without really explaining what that is. In the interests of efficiency, I will follow the example for now and try to flesh out the rationale later.
+
+The pipeline function used is limma_pipeline(). This takes the arguments:
+- tcga_data: The data we have already downloaded
+- condition_variable: This is the variable by which you want to group your samples (i.e. the groups for comparison)
+- reference_group: This defines which of your conditional variables is the reference (as opposed to the test/ exposure group)
+
+```{r}
+# limma_pipeline = 
+```
+
+
+
+ADD THE OUTPUT DESCRIPTIONS...

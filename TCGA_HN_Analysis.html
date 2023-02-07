@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Chrysostomos Tornari">
+
+<title>TCGA_HN_Analysis</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="TCGA_HN_Analysis_files/libs/clipboard/clipboard.min.js"></script>
+<script src="TCGA_HN_Analysis_files/libs/quarto-html/quarto.js"></script>
+<script src="TCGA_HN_Analysis_files/libs/quarto-html/popper.min.js"></script>
+<script src="TCGA_HN_Analysis_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="TCGA_HN_Analysis_files/libs/quarto-html/anchor.min.js"></script>
+<link href="TCGA_HN_Analysis_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="TCGA_HN_Analysis_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="TCGA_HN_Analysis_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="TCGA_HN_Analysis_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="TCGA_HN_Analysis_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body>
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#background" id="toc-background" class="nav-link active" data-scroll-target="#background">Background</a>
+  <ul class="collapse">
+  <li><a href="#disclaimer" id="toc-disclaimer" class="nav-link" data-scroll-target="#disclaimer">Disclaimer</a></li>
+  <li><a href="#aim" id="toc-aim" class="nav-link" data-scroll-target="#aim">Aim</a></li>
+  </ul></li>
+  <li><a href="#tcga-head-neck-carcinoma-information" id="toc-tcga-head-neck-carcinoma-information" class="nav-link" data-scroll-target="#tcga-head-neck-carcinoma-information">TCGA Head &amp; Neck Carcinoma Information</a></li>
+  <li><a href="#rnaseq" id="toc-rnaseq" class="nav-link" data-scroll-target="#rnaseq">RNAseq</a>
+  <ul class="collapse">
+  <li><a href="#hnsc-rnaseq-data" id="toc-hnsc-rnaseq-data" class="nav-link" data-scroll-target="#hnsc-rnaseq-data">HNSC RNAseq data</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">TCGA_HN_Analysis</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Chrysostomos Tornari </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<section id="background" class="level2">
+<h2 class="anchored" data-anchor-id="background">Background</h2>
+<section id="disclaimer" class="level3">
+<h3 class="anchored" data-anchor-id="disclaimer">Disclaimer</h3>
+<p>This is based on <a href="https://www.youtube.com/watch?v=oyAn5B-vLus">this tutorial</a>. I have followed this tutorial including the explanatory text in-between code blocks but adapted this for H&amp;N cancers.</p>
+</section>
+<section id="aim" class="level3">
+<h3 class="anchored" data-anchor-id="aim">Aim</h3>
+<p>I want to try and gain insights from the cancer genome atlas which may be applicable to Head &amp; Neck cancer. A PubMed search on “(cancer genome atlas OR TCGA) AND neck AND cancer AND (SCC OR squamous)” on 06/02/2023 revealed 1407 papers so this kind of analysis is unlikely to represent anything too new.</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-1_0e3e55bd3688af33d1e4bdeb6fa22143">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># if (!requireNamespace('BiocManager', quietly = TRUE))</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">#     install.packages('BiocManager')</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"># BiocManager::install('TCGAbiolinks')</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"TCGAbiolinks"</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># BiocManager::install('limma')</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"limma"</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># BiocManager::install('edgeR')</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"edgeR"</span>)</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"glmnet"</span>)</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"factoextra"</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"FactoMineR"</span>)</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"caret"</span>)</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"SummarizedExperiment"</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"gplots"</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"survival"</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"survminer"</span>)</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"RColorBrewer"</span>)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co"># BiocManager::install('clusterProfiler')</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"clusterProfiler"</span>)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># BiocManager::install('genefilter')</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"genefilter"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+<section id="tcga-head-neck-carcinoma-information" class="level2">
+<h2 class="anchored" data-anchor-id="tcga-head-neck-carcinoma-information">TCGA Head &amp; Neck Carcinoma Information</h2>
+<p>In this analysis I will look at a number of Head &amp; Neck cancer data from the above database. Head &amp; Neck cancer is referred to as HNSC in TCGA. You can then filter by subsite and explore the data though different subsites have quite different sample sizes. This can be seen in <a href="https://portal.gdc.cancer.gov/projects/TCGA-HNSC">this table</a>.</p>
+<p>The TCGA biolinks package installed and loaded in the above code block provides matching donors across different data tables and facilitates R analysis. There are some particularly important functions:</p>
+<ul>
+<li>GDCquery allows you to investigate TCGA</li>
+<li>GDCdownload downloads raw versions of the desired files</li>
+<li>GDCprepare puts them into an R-analysable format</li>
+</ul>
+<p>You can use head(getGDCprojects()) to look at the available projects but I already knwow the identity of the project I need from manually browsing <a href="https://portal.gdc.cancer.gov/">TCGA</a> and searching for H&amp;N. Here is a summary of the H&amp;N SCC data:</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-2_9637610ab7992a1bc56a426ccc52280f">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>TCGAbiolinks<span class="sc">::</span><span class="fu">getProjectSummary</span>(<span class="st">"TCGA-HNSC"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>$file_count
+[1] 25804
+
+$data_categories
+  file_count case_count               data_category
+1       4340        526       Copy Number Variation
+2       3709        528            Sequencing Reads
+3       7166        510 Simple Nucleotide Variation
+4       1740        528             DNA Methylation
+5       1103        528                    Clinical
+6       2270        528     Transcriptome Profiling
+7       2858        528                 Biospecimen
+8        354        354          Proteome Profiling
+9       2264        521        Structural Variation
+
+$case_count
+[1] 528
+
+$file_size
+[1] 7.172321e+13</code></pre>
+</div>
+</div>
+</section>
+<section id="rnaseq" class="level2">
+<h2 class="anchored" data-anchor-id="rnaseq">RNAseq</h2>
+<p>The example starts by looking at RNAseq. This is something relatively new to me as it’s a next-generation sequencing approach that gained popularity since my PhD. It is a technique that analyses the quantity and sequencing of RNA in a sample. It analyses the transcriptome. Although it sounds like you directly analyse RNA rather than using reverse transcriptase to generate cDNA, this is not true. cDNA is generated and next-generation sequencing applied. It is a quantitative technique as it can provide transcription levels.Finally, it also captures splice variants and post-transcriptional modifications. Filtering steps to deplete tRNA and rRNA can be applied to leave just mRNA if this is desired.</p>
+<section id="hnsc-rnaseq-data" class="level3">
+<h3 class="anchored" data-anchor-id="hnsc-rnaseq-data">HNSC RNAseq data</h3>
+<p>As per the example, I will first look at the ‘Transcriptome Profiling’ within the population of interest. Though the example statest that we will use ‘HTSeq’ counts they actually use STAR Counts. STAR stands for Spliced Transcripts Alignment to a Reference. It is an accurate and fast method of aligning reads to a reference genome.For every read presented, this algorithm will search for the longest sequence that exactly matches the reference genome. It will then try to match the rest of the unmatched read (e.g.&nbsp;to the next exon in the genome). It includes strategies to manage mismatches and deletions.</p>
+<p>I first got the STAR-counts for all HNSCCs in the database</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-3_904006dc1709895fddcab967b7ec3695">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># I changed an "=" in the below statement to "&lt;-"</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>query_TCGA <span class="ot">&lt;-</span> <span class="fu">GDCquery</span>(</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">project =</span> <span class="st">"TCGA-HNSC"</span>,</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">data.category =</span> <span class="st">"Transcriptome Profiling"</span>, <span class="co"># parameter enforced by GDCquery</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">data.type =</span> <span class="st">"Gene Expression Quantification"</span>,</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">experimental.strategy =</span> <span class="st">"RNA-Seq"</span>,</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">#workflow.type = "HTSeq - Counts"</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">workflow.type =</span> <span class="st">"STAR - Counts"</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>o GDCquery: Searching in GDC database</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Genome of reference: hg38</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>oo Accessing GDC. This might take a while...</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo Project: TCGA-HNSC</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>oo Filtering results</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo By experimental.strategy</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo By data.type</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo By workflow.type</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>----------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>oo Checking data</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>----------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo Checking if there are duplicated cases</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo Checking if there are results for the query</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>-------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>o Preparing output</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>-------------------</code></pre>
+</div>
+</div>
+<p>This returns a data frame which contains another dataframe in [1,1]. this is a summary of the columns in the [1,1] df:</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-4_6ad83406445f1c7ffe4897fd84e52438">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(<span class="fu">getResults</span>(query_TCGA))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "id"                        "data_format"              
+ [3] "cases"                     "access"                   
+ [5] "file_name"                 "submitter_id"             
+ [7] "data_category"             "type"                     
+ [9] "file_size"                 "created_datetime"         
+[11] "md5sum"                    "updated_datetime"         
+[13] "file_id"                   "data_type"                
+[15] "state"                     "experimental_strategy"    
+[17] "version"                   "data_release"             
+[19] "project"                   "analysis_id"              
+[21] "analysis_state"            "analysis_submitter_id"    
+[23] "analysis_workflow_link"    "analysis_workflow_type"   
+[25] "analysis_workflow_version" "sample_type"              
+[27] "is_ffpe"                   "cases.submitter_id"       
+[29] "sample.submitter_id"      </code></pre>
+</div>
+</div>
+<p>On exploring the full dataframe I agree with the exercise that the type of samples are of interest:</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-5_5bbcd0a857273d3d412850e7f9240059">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="fu">getResults</span>(query_TCGA) <span class="sc">%&gt;%</span> </span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(sample_type) <span class="sc">%&gt;%</span> </span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  hablar<span class="sc">::</span><span class="fu">convert</span>(hablar<span class="sc">::</span><span class="fu">fct</span>(sample_type)) <span class="sc">%&gt;%</span> </span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summary</span>() <span class="co"># Can also use table() as last statement</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>              sample_type 
+ Metastatic         :  2  
+ Primary Tumor      :520  
+ Solid Tissue Normal: 44  </code></pre>
+</div>
+</div>
+<p>Given the poor representation of metastases in this dataset there is no point in further analysing this set at the time of writing. The walk-through tells us how to re-generate the dataset without these. This seems very inefficient (as per a lot of the code) but I will do it this way to prevent future errors as I am unfamiliar with GDCquery…</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-6_0583fa7b7329a5865d15e837306c52f1">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>query_TCGA <span class="ot">&lt;-</span> <span class="fu">GDCquery</span>(</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">project =</span> <span class="st">"TCGA-HNSC"</span>,</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">data.category =</span> <span class="st">"Transcriptome Profiling"</span>, <span class="co"># parameter enforced by GDCquery</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">data.type =</span> <span class="st">"Gene Expression Quantification"</span>,</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">experimental.strategy =</span> <span class="st">"RNA-Seq"</span>,</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">#workflow.type = "HTSeq - Counts"</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">workflow.type =</span> <span class="st">"STAR - Counts"</span>,</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sample.type =</span> <span class="fu">c</span>(<span class="st">"Primary Tumor"</span>, <span class="st">"Solid Tissue Normal"</span>) <span class="co"># beware American spelling</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>o GDCquery: Searching in GDC database</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Genome of reference: hg38</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>oo Accessing GDC. This might take a while...</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo Project: TCGA-HNSC</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>oo Filtering results</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>--------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo By experimental.strategy</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo By data.type</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo By workflow.type</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo By sample.type</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>----------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>oo Checking data</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>----------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo Checking if there are duplicated cases</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>ooo Checking if there are results for the query</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>-------------------</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>o Preparing output</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>-------------------</code></pre>
+</div>
+</div>
+<p>I’ll just check that this new dataset has the right sample types:</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-7_7c9f94d4c91f14e333b2bb89c0387ff8">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">getResults</span>(query_TCGA) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>  dplyr<span class="sc">::</span><span class="fu">select</span>(sample_type) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>  hablar<span class="sc">::</span><span class="fu">convert</span>(hablar<span class="sc">::</span><span class="fu">fct</span>(sample_type)) <span class="sc">%&gt;%</span> </span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summary</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>              sample_type 
+ Primary Tumor      :520  
+ Solid Tissue Normal: 44  </code></pre>
+</div>
+</div>
+<p>I am doing this analysis as a project so that I don’t have to worry about the working directory. When GDCdownload gets the relevant files to the above query (which is currently just a list of the files) it will put them in the working directory. If you have downloaded this project from GitHub then the files will be downloaded into the project directory where a new directory called “GDCdata” will be created.</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-8_b2f12a2bd060d8cc64023c33b674aa1f">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="fu">GDCdownload</span>(<span class="at">query =</span> query_TCGA)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>Downloading data for project TCGA-HNSC</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Of the 564 files for download 564 already exist.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>All samples have been already downloaded</code></pre>
+</div>
+</div>
+<p>I will now read the data into r.</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-9_cec559ed7b7b3b5e2e0a0fe7b825ce5e">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>tcga_data <span class="ot">&lt;-</span> <span class="fu">GDCprepare</span>(query_TCGA)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>Starting to add information to samples</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code> =&gt; Add clinical information to samples</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code> =&gt; Adding TCGA molecular information from marker papers</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code> =&gt; Information will have prefix 'paper_' </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>hnsc subtype information from:doi:10.1038/nature14129</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Available assays in SummarizedExperiment : 
+  =&gt; unstranded
+  =&gt; stranded_first
+  =&gt; stranded_second
+  =&gt; tpm_unstrand
+  =&gt; fpkm_unstrand
+  =&gt; fpkm_uq_unstrand</code></pre>
+</div>
+</div>
+<p>For the selected H&amp;N SCC primary and normal samples we have rows and 564 columns. Here are the columns available:</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-10_39c85110eb290c13fad3d28284c09188">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(<span class="fu">colData</span>(tcga_data))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "barcode"                     "patient"                    
+ [3] "sample"                      "shortLetterCode"            
+ [5] "definition"                  "sample_submitter_id"        
+ [7] "sample_type_id"              "oct_embedded"               
+ [9] "sample_id"                   "submitter_id"               
+[11] "state"                       "is_ffpe"                    
+[13] "sample_type"                 "tissue_type"                
+[15] "tumor_descriptor"            "composition"                
+[17] "days_to_collection"          "initial_weight"             
+[19] "intermediate_dimension"      "pathology_report_uuid"      
+[21] "shortest_dimension"          "longest_dimension"          
+[23] "synchronous_malignancy"      "ajcc_pathologic_stage"      
+[25] "days_to_diagnosis"           "treatments"                 
+[27] "last_known_disease_status"   "tissue_or_organ_of_origin"  
+[29] "days_to_last_follow_up"      "age_at_diagnosis"           
+[31] "primary_diagnosis"           "ajcc_clinical_stage"        
+[33] "prior_malignancy"            "year_of_diagnosis"          
+[35] "prior_treatment"             "ajcc_staging_system_edition"
+[37] "ajcc_pathologic_t"           "morphology"                 
+[39] "ajcc_clinical_m"             "ajcc_clinical_n"            
+[41] "ajcc_clinical_t"             "classification_of_tumor"    
+[43] "diagnosis_id"                "icd_10_code"                
+[45] "site_of_resection_or_biopsy" "tumor_grade"                
+[47] "progression_or_recurrence"   "ajcc_pathologic_n"          
+[49] "ajcc_pathologic_m"           "cigarettes_per_day"         
+[51] "alcohol_history"             "exposure_id"                
+[53] "years_smoked"                "pack_years_smoked"          
+[55] "race"                        "gender"                     
+[57] "ethnicity"                   "vital_status"               
+[59] "age_at_index"                "days_to_birth"              
+[61] "year_of_birth"               "demographic_id"             
+[63] "days_to_death"               "year_of_death"              
+[65] "bcr_patient_barcode"         "primary_site"               
+[67] "project_id"                  "disease_type"               
+[69] "name"                        "releasable"                 
+[71] "released"                    "paper_patient"              
+[73] "paper_RNA"                   "paper_Methylation"          
+[75] "paper_RPPA"                  "paper_miRNA"                
+[77] "paper_Copy.Number"           "paper_PARADIGM"             </code></pre>
+</div>
+</div>
+<p>Some useful figures:</p>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-11_85f6fea8e58362dda82fe05e39f1e81f">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb70"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(tcga_data<span class="sc">@</span>colData<span class="sc">$</span>vital_status)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Alive  Dead 
+  310   254 </code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb72"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(tcga_data<span class="sc">@</span>colData<span class="sc">$</span>ajcc_pathologic_stage)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+  Stage I  Stage II Stage III Stage IVA Stage IVB Stage IVC 
+       29        87        89       270        12         1 </code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb74"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(tcga_data<span class="sc">@</span>colData<span class="sc">$</span>definition)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Primary solid Tumor Solid Tissue Normal 
+                520                  44 </code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb76"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(tcga_data<span class="sc">@</span>colData<span class="sc">$</span>tissue_or_organ_of_origin)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+                           Anterior floor of mouth 
+                                                 2 
+                               Base of tongue, NOS 
+                                                26 
+                                  Border of tongue 
+                                                 1 
+                                      Cheek mucosa 
+                                                19 
+                               Floor of mouth, NOS 
+                                                56 
+                                          Gum, NOS 
+                                                 8 
+                                       Hard palate 
+                                                 4 
+                                  Hypopharynx, NOS 
+                                                 9 
+                                       Larynx, NOS 
+                                               127 
+                                          Lip, NOS 
+                                                 3 
+                                         Lower gum 
+                                                 2 
+                                          Mandible 
+                                                 1 
+                                        Mouth, NOS 
+                                                23 
+                                   Oropharynx, NOS 
+                                                 9 
+Overlapping lesion of lip, oral cavity and pharynx 
+                                                83 
+                                       Palate, NOS 
+                                                 1 
+                                      Pharynx, NOS 
+                                                 1 
+                      Posterior wall of oropharynx 
+                                                 1 
+                                   Retromolar area 
+                                                 1 
+                                      Supraglottis 
+                                                 1 
+                                       Tongue, NOS 
+                                               140 
+                                       Tonsil, NOS 
+                                                44 
+                                         Upper Gum 
+                                                 1 
+                    Ventral surface of tongue, NOS 
+                                                 1 </code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb78"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(tcga_data<span class="sc">@</span>colData<span class="sc">$</span>gender)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+female   male 
+   150    414 </code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb80"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(tcga_data<span class="sc">@</span>colData<span class="sc">$</span>race)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+american indian or alaska native                            asian 
+                               2                               12 
+       black or african american                     not reported 
+                              50                               16 
+                           white 
+                             484 </code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb82"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(<span class="fu">assay</span>(tcga_data))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 60660   564</code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb84"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb84-1"><a href="#cb84-1" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(<span class="fu">rowData</span>(tcga_data))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>DataFrame with 6 rows and 10 columns
+                     source     type     score     phase            gene_id
+                   &lt;factor&gt; &lt;factor&gt; &lt;numeric&gt; &lt;integer&gt;        &lt;character&gt;
+ENSG00000000003.15   HAVANA     gene        NA        NA ENSG00000000003.15
+ENSG00000000005.6    HAVANA     gene        NA        NA  ENSG00000000005.6
+ENSG00000000419.13   HAVANA     gene        NA        NA ENSG00000000419.13
+ENSG00000000457.14   HAVANA     gene        NA        NA ENSG00000000457.14
+ENSG00000000460.17   HAVANA     gene        NA        NA ENSG00000000460.17
+ENSG00000000938.13   HAVANA     gene        NA        NA ENSG00000000938.13
+                        gene_type   gene_name       level     hgnc_id
+                      &lt;character&gt; &lt;character&gt; &lt;character&gt; &lt;character&gt;
+ENSG00000000003.15 protein_coding      TSPAN6           2  HGNC:11858
+ENSG00000000005.6  protein_coding        TNMD           2  HGNC:17757
+ENSG00000000419.13 protein_coding        DPM1           2   HGNC:3005
+ENSG00000000457.14 protein_coding       SCYL3           2  HGNC:19285
+ENSG00000000460.17 protein_coding    C1orf112           2  HGNC:25565
+ENSG00000000938.13 protein_coding         FGR           2   HGNC:3697
+                            havana_gene
+                            &lt;character&gt;
+ENSG00000000003.15 OTTHUMG00000022002.2
+ENSG00000000005.6  OTTHUMG00000022001.2
+ENSG00000000419.13 OTTHUMG00000032742.2
+ENSG00000000457.14 OTTHUMG00000035941.6
+ENSG00000000460.17 OTTHUMG00000035821.9
+ENSG00000000938.13 OTTHUMG00000003516.3</code></pre>
+</div>
+</div>
+<div class="cell" data-hash="TCGA_HN_Analysis_cache/html/unnamed-chunk-12_5a33aa61f84804aa5196ed2849fd1d65">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb86"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Save the data as a file, if you need it later, you can just load this file</span></span>
+<span id="cb86-2"><a href="#cb86-2" aria-hidden="true" tabindex="-1"></a><span class="co"># instead of having to run the whole pipeline again</span></span>
+<span id="cb86-3"><a href="#cb86-3" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(<span class="at">object =</span> tcga_data,</span>
+<span id="cb86-4"><a href="#cb86-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">file =</span> <span class="st">"tcga_data.RDS"</span>,</span>
+<span id="cb86-5"><a href="#cb86-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">compress =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb86-6"><a href="#cb86-6" aria-hidden="true" tabindex="-1"></a>tcga_data <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="at">file =</span> <span class="st">"tcga_data.RDS"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
