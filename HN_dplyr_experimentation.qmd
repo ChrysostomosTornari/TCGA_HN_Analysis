@@ -1,0 +1,28 @@
+---
+title: "HN_dplyr_experimentation"
+author: "Chrysostomos Tornari"
+execute:
+  cache: true
+format:
+  html: 
+    code-fold: true
+    toc: true
+---
+
+## Rationale
+
+I have previously downloaded TCGA data via TCGA using BioConductr packages that really mess up my workflow. From these effort I have generated RDS files. I would now like to play with these data frames in my usual manner
+
+```{r}
+library(tidyverse)
+tcga_data <- readRDS("tcga_data.RDS")
+names(tcga_data)
+isS4(tcga_data)
+str(tcga_data)
+
+library(TCGAbiolinks)
+
+getResults(tcga_data)
+
+```
+

@@ -1,0 +1,858 @@
+---
+title: "TCGA_HN_Analysis"
+author: "Chrysostomos Tornari"
+date: last-modified
+execute:
+  cache: true
+format:
+  pdf
+  # html: 
+  #   code-fold: true
+  #   toc: true
+---
+
+
+## Background
+
+### Disclaimer
+
+This analysis was inspired by [this tutorial](https://www.youtube.com/watch?v=oyAn5B-vLus). It led me to [this guide](https://www.costalab.org/wp-content/uploads/2022/11/handout_day4.html#2_TCGA_data) which I have followed but adapted for H&N cancers.
+
+### Aim
+
+I want to try and gain insights from the cancer genome atlas which may be applicable to Head & Neck cancer. A PubMed search on "(cancer genome atlas OR TCGA) AND neck AND cancer AND (SCC OR squamous)" on 06/02/2023 revealed 1407 papers so this kind of analysis is unlikely to represent anything too new.
+
+
+```{r}
+#| label: Loading libraries
+#| warning: false
+# if (!requireNamespace('BiocManager', quietly = TRUE))
+#     install.packages('BiocManager')
+# BiocManager::install('TCGAbiolinks')
+library("TCGAbiolinks")
+# BiocManager::install('limma')
+library("limma")
+# BiocManager::install('edgeR')
+library("edgeR")
+library("glmnet")
+library("factoextra")
+library("FactoMineR")
+library("caret")
+library("SummarizedExperiment")
+library("gplots")
+library("survival")
+library("survminer")
+library("RColorBrewer")
+# BiocManager::install('clusterProfiler')
+library("clusterProfiler")
+# BiocManager::install('genefilter')
+library("genefilter")
+```
+
+
+## TCGA Head & Neck Carcinoma Information
+
+In this analysis I will look at a number of Head & Neck cancer data from the above database. Head & Neck cancer is referred to as HNSC in TCGA. You can then filter by subsite and explore the data though different subsites have quite different sample sizes. This can be seen in [this table](https://portal.gdc.cancer.gov/projects/TCGA-HNSC).
+
+The TCGA biolinks package installed and loaded in the above code block provides matching donors across different data tables and facilitates R analysis. There are some particularly important functions:
+
+-   `GDCquery` allows you to investigate TCGA
+-   `GDCdownload` downloads raw versions of the desired files
+-   `GDCprepare` puts them into an R-analysable format
+
+You can use `head(getGDCprojects())` to look at the available projects but I already knwow the identity of the project I need from manually browsing [TCGA](https://portal.gdc.cancer.gov/) and searching for H&N. Here is a summary of the H&N SCC data:
+
+
+```{r}
+#| label: Pulling HN summary from TCGA
+TCGAbiolinks::getProjectSummary("TCGA-HNSC")
+```
+
+
+## RNAseq
+
+The example starts by looking at RNAseq. This is something relatively new to me as it's a next-generation sequencing approach that gained popularity since my PhD. It is a technique that analyses the quantity and sequencing of RNA in a sample. It analyses the transcriptome. Although it sounds like you directly analyse RNA rather than using reverse transcriptase to generate cDNA, this is not true. cDNA is generated and next-generation sequencing applied. It is a quantitative technique as it can provide transcription levels.Finally, it also captures splice variants and post-transcriptional modifications. Filtering steps to deplete tRNA and rRNA can be applied to leave just mRNA if this is desired.
+
+### HNSC RNAseq data
+
+As per the example, I will first look at the 'Transcriptome Profiling' within the population of interest. Though the example statest that we will use 'HTSeq' counts they actually use STAR Counts. STAR stands for Spliced Transcripts Alignment to a Reference. It is an accurate and fast method of aligning reads to a reference genome.For every read presented, this algorithm will search for the longest sequence that exactly matches the reference genome. It will then try to match the rest of the unmatched read (e.g. to the next exon in the genome). It includes strategies to manage mismatches and deletions.
+
+I first got the STAR-counts for all HNSCCs in the database
+
+
+```{r}
+#| label: Querying TCGA
+#| results: hide
+# I changed an "=" in the below statement to "<-"
+
+query_TCGA <- GDCquery(
+  project = "TCGA-HNSC",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  data.type = "Gene Expression Quantification",
+  experimental.strategy = "RNA-Seq",
+  #workflow.type = "HTSeq - Counts"
+  workflow.type = "STAR - Counts"
+)
+```
+
+
+This returns a data frame which contains another dataframe in \[1,1\]. this is a summary of the columns in the \[1,1\] df:
+
+
+```{r}
+#| label: Analysing column names
+colnames(getResults(query_TCGA))
+```
+
+
+On exploring the full dataframe I agree with the exercise that the type of samples are of interest:
+
+
+```{r}
+#| label: Sample types
+getResults(query_TCGA) %>% 
+  dplyr::select(sample_type) %>% 
+  hablar::convert(hablar::fct(sample_type)) %>% 
+  summary() # Can also use table() as last statement
+```
+
+
+Given the poor representation of metastases in this dataset there is no point in further analysing this set at the time of writing. The walk-through tells us how to re-generate the dataset without these. This seems very inefficient (as per a lot of the code) but I will do it this way to prevent future errors as I am unfamiliar with GDCquery...
+
+
+```{r}
+#| label: Get STAR counts of data
+#| results: hide
+query_TCGA <- GDCquery(
+  project = "TCGA-HNSC",
+  data.category = "Transcriptome Profiling", # parameter enforced by GDCquery
+  data.type = "Gene Expression Quantification",
+  experimental.strategy = "RNA-Seq",
+  #workflow.type = "HTSeq - Counts"
+  workflow.type = "STAR - Counts",
+  sample.type = c("Primary Tumor", "Solid Tissue Normal") # beware American spelling
+)
+```
+
+
+I'll just check that this new dataset has the right sample types:
+
+
+```{r}
+#| label: Check sample types
+getResults(query_TCGA) %>% 
+  dplyr::select(sample_type) %>% 
+  hablar::convert(hablar::fct(sample_type)) %>% 
+  summary() 
+```
+
+
+I am doing this analysis as a project so that I don't have to worry about the working directory. When GDCdownload gets the relevant files to the above query (which is currently just a list of the files) it will put them in the working directory. If you have downloaded this project from GitHub then the files will be downloaded into the project directory where a new directory called "GDCdata" will be created. Currently the files for this particular analysis are not in the GitHub folder and you will have to download them yourself by running the above code (as they are too large to host).
+
+
+```{r}
+#| label: Downloading files
+#| results: hide
+GDCdownload(query = query_TCGA)
+```
+
+
+I will now read the data into r.
+
+
+```{r}
+#| label: Prepare data
+#| results: hide
+
+# Note that you can skip this step and see the next block if you have the 
+# tcga_data.RDS file in your directory though this will not be available on 
+# GitHub as too large. I'd have to remotely host this and provide the link for 
+# other users to be able to access this.
+
+tcga_data <- GDCprepare(query_TCGA)
+```
+
+```{r}
+#| label: Save data to RDS
+# Save the data as a file, if you need it later, you can just load this file
+# instead of having to run the whole pipeline again
+saveRDS(object = tcga_data,
+        file = "tcga_data.RDS",
+        compress = FALSE)
+# tcga_data <- readRDS(file = "tcga_data.RDS")
+```
+
+
+For the selected H&N SCC primary and normal samples we have `r dim(tcga_data)[1]` rows and `r dim(tcga_data)[2]` columns. Here are the columns available:
+
+
+```{r}
+#| label: Check colnames of data
+colnames(colData(tcga_data))
+```
+
+
+Some useful figures:
+
+
+```{r}
+# label: Useful tables
+table(tcga_data@colData$vital_status) %>% kableExtra::kable()
+table(tcga_data@colData$ajcc_pathologic_stage) %>% kableExtra::kable()
+table(tcga_data@colData$definition) %>% kableExtra::kable()
+table(tcga_data@colData$tissue_or_organ_of_origin) %>% kableExtra::kable()
+table(tcga_data@colData$gender) %>% kableExtra::kable()
+table(tcga_data@colData$race) %>% kableExtra::kable()
+dim(assay(tcga_data)) %>% kableExtra::kable()
+head(rowData(tcga_data)) %>% kableExtra::kable()
+```
+
+
+## RNASeq Normalization
+
+### Step-by-step
+Here is a step-by-step version of a pipeline
+
+
+```{r}
+#| label: Step-by-step pipeline
+
+clinical_data <- colData(tcga_data)
+group <- factor(clinical_data$definition)
+group <- relevel(group, ref="Solid Tissue Normal")
+design <- model.matrix(~group)
+# head(design)
+
+# Remove low count genes (<10 by default)
+# First create a Differential Gene Expression list
+dge <- DGEList(
+  counts = assay(tcga_data),
+  samples = colData(tcga_data),
+  genes = as.data.frame(rowData(tcga_data))
+)
+
+# filtering
+keep <- filterByExpr(dge, design) # Define the genes to keep
+dge <- dge[keep,,keep.lib.sizes=FALSE] # filter the object
+rm(keep)
+
+dge <- calcNormFactors(dge, metho = "TMM") # TMM = trimmed mean of M-values
+
+# We then need to conver the data to have similar variance as arrays with the VOOM
+# method. This is presumably because limma was designed to run on arrays rather
+# than NextGen sequencing libraries
+
+v <- voom(dge, design, plot = TRUE)
+
+```
+
+
+> "Finally, using lmFit lets fit a series of linear models, one to each of the probes. 
+> These data will then be fed to eBayes to produce a complex object which holds a number 
+> of statistics that we can use to rank the differentially expressed genes."
+
+
+```{r}
+#| label: Manually fitting data
+fit <- lmFit(v, design)
+fit <- eBayes(fit)
+```
+
+
+We will now look at the top 10 differentially expressed genes:
+
+
+```{r}
+#| label: Identifying top genes
+topGenes <- topTable(fit, coef = 1, sort.by = "p")
+topGenes %>% kableExtra::kable()
+```
+
+
+## Pipeline approach to analysis
+
+
+```{r}
+#| label: Functional pipeline approach 
+limma_pipeline <- function(
+  tcga_data,
+  condition_variable,
+  reference_group=NULL){
+
+  design_factor = colData(tcga_data)[, condition_variable, drop=T]
+
+  group = factor(design_factor)
+  if(!is.null(reference_group)){group = relevel(group, ref=reference_group)}
+
+  design = model.matrix(~ group)
+
+  dge = DGEList(counts=assay(tcga_data),
+                 samples=colData(tcga_data),
+                 genes=as.data.frame(rowData(tcga_data)))
+
+  # filtering
+  keep = filterByExpr(dge,design)
+  dge = dge[keep,,keep.lib.sizes=FALSE]
+  rm(keep)
+
+  # Normalization (TMM followed by voom)
+  dge = calcNormFactors(dge)
+  v = voom(dge, design, plot=TRUE)
+
+  # Fit model to data given design
+  fit = lmFit(v, design)
+  fit = eBayes(fit)
+
+  # Show top genes
+  topGenes = topTable(fit, coef=ncol(design), number=100, sort.by="p")
+
+  return(
+    list(
+      voomObj=v, # normalized data
+      fit=fit, # fitted model and statistics
+      topGenes=topGenes # the 100 most differentially expressed genes
+    )
+  )
+}
+```
+
+
+Now with a pipeline, we can easily make different queries. Firstly by tissue type:
+
+
+```{r}
+#| label: Tissue type through pipeline
+limma_res <- limma_pipeline(
+  tcga_data=tcga_data,
+  condition_variable="definition",
+  reference_group="Solid Tissue Normal"
+)
+```
+
+
+This result is saved also:
+
+
+```{r}
+#| label: Save RDS of pipeline output
+# Save the data as a file, if you need it later, you can just load this file
+# instead of having to run the whole pipeline again
+saveRDS(object = limma_res,
+        file = "limma_res.RDS",
+        compress = FALSE)
+# limma_res <- readRDS(file = "limma_res.RDS")
+```
+
+
+Here is another analysis by gender
+
+
+```{r}
+#| label: Gender pipeline analysis
+gender_limma_res <- limma_pipeline(
+  tcga_data=tcga_data,
+  condition_variable="gender",
+  reference_group="female"
+)
+
+saveRDS(object = gender_limma_res,
+        file = "gender_limma_res.RDS",
+        compress = FALSE)
+# gender_limma_res <- readRDS(file = "gender_limma_res.RDS")
+
+
+```
+
+
+Let's look at the top genes that come out of these analyses firstly by tissue type (normal vs cancer):
+
+
+```{r}
+#| label: Pipeline top genes by tissue
+head(limma_res$topGenes, 20) %>% kableExtra::kable()
+```
+
+
+Then by gender:
+
+```{r}
+#| label: Pipeline top genes by gender
+head(gender_limma_res$topGenes, 20) %>% kableExtra::kable()
+```
+
+
+***Why don't the genes that come out of the 'manual' and automatic analyses match here? I would have thought that they should both be identical but would have to examine the code of the automated block to be sure. (TO DO)**
+
+## Visualization
+
+### PCA Plot
+
+The authors have prepared another function which uses the "voom" object that comes out of the limma pipeline **To read about later, this is a "Large EList".** You then plug this into a principal components anysis (PCA) though the authors are light on an explanation of the variable that is being subjected to this analysis and I will have to read up on this further.
+
+
+```{r}
+#| label: PCA plot function
+plot_PCA <- function(voomObj, condition_variable){
+  group = factor(voomObj$targets[, condition_variable])
+  pca = prcomp(t(voomObj$E))
+  # Take PC1 and PC2 for the plot
+  plot(pca$x[,1:2],col=group, pch=19)
+  # include a legend for points
+  legend("bottomleft", inset=.01, levels(group), pch=19, col=1:length(levels(group)))
+  return(pca)
+}
+```
+
+
+They then use the function `plot_PCA()` to get the first **two** principal components and plot them against each other with the conditional variable in this case being cancer vs non-cancer tissue.
+
+
+```{r}
+#| label: PCA plot of cancer vs normal
+
+res_pca <- plot_PCA(limma_res$voomObj, "definition")
+```
+
+
+The usual problem of the explicability of the PCA model is exacerbated by the fact that I don't have a good intuitive feel for the factors being analysed here (presumably DNA expression levels for all the genes in the human genome plus some other sequences included in the genome). Unlike the example here, there doesn't appear to be great separation of the RNA expression profiles of the two groups. Out of curiosity I'm also going to have a look at the gender data. I expect better separation here due to factors like the SRY gene coming out of the analysis above:
+
+
+```{r}
+#| label: PCA plot of male vs female
+
+gender_res_pca <- plot_PCA(gender_limma_res$voomObj, "definition")
+```
+
+
+Hmm, not fantastic, maybe the relatively low sample size of H&N tumours in the TCGA database or heterogeneity between subsites is causing this?
+
+### Heatmap
+
+Going back to the walk-through and focusing on tumour vs normal tissue, I will create a heatmap:
+
+
+```{r}
+#| label: Selecting top 20 genes in sample
+
+# first lets get the normalized expression matrix from our limma_res object
+expr_mat <- as.matrix(t(limma_res$voomObj$E))
+
+# then lets get gene names that are easier to look at
+gene_names <- limma_res$voomObj$genes[,"gene_name"]
+
+# and use these to rename the genes in our expression matrix
+colnames(expr_mat) <- gene_names
+
+# we want to get the top20 DE genes
+# topGenes is already sorted by the adjusted p-value (in ascending order)
+head(limma_res$topGenes,20) %>% kableExtra::kable()
+```
+
+```{r}
+#| label: Creating HeatMap
+ 
+# therefore we can just go ahead and select the first 20 values
+top_de_genes <- limma_res$topGenes$gene_name[1:20]
+
+# we'll get the sample type data so that we can show the groups in the heatmap
+sample_type <- factor(limma_res$voomObj$targets$sample_type)
+
+# define the color palette for the plot
+hmcol <- colorRampPalette(rev(brewer.pal(9, "RdBu")))(256)
+
+# perform complete linkage clustering
+clust_func <- function(x) hclust(x, method="complete")
+
+# use the inverse of correlation as distance.
+dist_func <- function(x) as.dist((1-cor(t(x)))/2)
+
+# A good looking heatmap involves a lot of parameters and tinkering
+gene_heatmap <- heatmap.2(
+  t(expr_mat[,top_de_genes]),
+  scale="row",          # scale the values for each gene (row)
+  density.info="none",  # turns off density plot inside color legend
+  trace="none",         # turns off trace lines inside the heat map
+  col=hmcol,            # define the color map
+  labCol=FALSE,         # Not showing column labels
+  ColSideColors=as.character(as.numeric(sample_type)), # Show colors for each response class
+  dendrogram="both",    # Show dendrograms for both axis
+  hclust = clust_func,  # Define hierarchical clustering method
+  distfun = dist_func,  # Using correlation coefficient for distance function
+  cexRow=1.0,           # Resize row labels
+  keysize = 1.25,       # Size of the legend
+  margins=c(1,6)        # Define margin spaces
+)
+```
+
+
+### Interpreting HeatMap
+
+- This Heat Map is based on The genes on the vertical column with the samples in the horizontal column. I cannot yet interpret the treee **come back to this**
+
+## Further heatmap exercise
+
+The exercise set is to produce a heatmap for gender data. It would be relatively simple to repeat the above code but this would not be a "DRY" method. In order to parametrise the above operations I need to figure out how to select the right limma object and comparators. The limma object itself sets some of these factors. I need to be able to pass these elements into a function as arguments. Hence, I need a function.
+
+
+```{r}
+#| label: Functionalising pipeline further
+
+# YOU HAVE NOT PUT THE COMPARATOR IN THE FUNCTION
+# THIS FUNCITON NEEDS THE LIMMA PIPELINE ADDED AND THEN TO PASS IN THE COMPARATOR
+
+
+my.heatmap.fun <- function(data_source, comparator, number_of_genes) {
+  top_genes_in_result <-  data_source %>% 
+    magrittr::extract2("topGenes") %>% 
+    dplyr::select(gene_name) %>% 
+    dplyr::slice_head(n = number_of_genes) %>% 
+    dplyr::pull()
+  
+  type_of_sample <- data_source %>%
+    magrittr::use_series("voomObj") %>% 
+    magrittr::use_series("targets") %>% 
+    magrittr::use_series("sample_type") %>% 
+    factor()  
+  
+  hmcol <- colorRampPalette(rev(brewer.pal(9, "RdBu")))(256)
+  
+  clust_func <- function(x) hclust(x, method="complete")
+  
+  dist_func <- function(x) as.dist((1-cor(t(x)))/2)
+  
+  gene_heatmap <- heatmap.2(
+  t(expr_mat[,top_genes_in_result]),
+  scale="row",          # scale the values for each gene (row)
+  density.info="none",  # turns off density plot inside color legend
+  trace="none",         # turns off trace lines inside the heat map
+  col=hmcol,            # define the color map
+  labCol=FALSE,         # Not showing column labels
+  ColSideColors=as.character(as.numeric(type_of_sample)), # Show colors for each response class
+  dendrogram="both",    # Show dendrograms for both axis
+  hclust = clust_func,  # Define hierarchical clustering method
+  distfun = dist_func,  # Using correlation coefficient for distance function
+  cexRow=1.0,           # Resize row labels
+  keysize = 1.25,       # Size of the legend
+  margins=c(1,6)        # Define margin spaces
+  )
+}
+
+my.heatmap.fun(limma_res, sample_type, 20)
+my.heatmap.fun(gender_limma_res, sample_type, 20)
+# colnames(colData(tcga_data))
+
+
+
+```
+
+
+TO DO: Come back and try different factors such as T stage or N stage
+
+Questions:
+1. What difference in the main tumour predicts nodal spread?
+1. What role does stage play?
+1. Do these correlate with survival?
+1. What other factors (such as age) are important?
+1. Can I generate a table 1 for these data?
+1. Can I look at smoking in this dataset in ways that haven't been published already?
+
+Moving on with the exercise, let's get through the survival exercises so that we can apply these to the questions we want to answer.
+
+## Survival
+
+### Survival by gender
+
+In the example, they look at gender and ask whether this predicts survival. We have already created a relevant object above for this where gene expression is concerned. Now let's see what we can do for survival. 
+
+
+```{r}
+#| label: Extracting clinical data from tcga_data
+
+clinical <- tcga_data@colData
+
+# We only want the "Primary solid Tumor" cases here
+
+clin_df <- clinical[clinical$definition == "Primary solid Tumor", 
+                    c("patient", 
+                      "vital_status",
+                      "days_to_death",
+                      "days_to_last_follow_up",
+                      "gender",
+                      "ajcc_pathologic_stage")]
+
+```
+
+
+The exercise authors have selected out only the columns that are relevant to survival analysis here. I did try to replicate the above using dplyr functions but simply cannot get these to work with the S4 DFrame that bioconductor uses here.
+
+Interestingly, the exercise recommends creating a new column for the survival status using a boolean rather than a 1 or zero as I have previously used in the survival package:
+
+
+```{r}
+#| label: Defining Event columm
+
+clin_df$deceased <- clin_df$vital_status == "Dead" # This creates TRUE for dead and FALSE for alive
+```
+
+
+In the current frame, time to last follow-up and time to death are in separate columns. In survival analysis, we need to know the time to the last contact with the patient whether this be death or follow-up and the reelvant time needs to be in the same column:
+
+
+```{r}
+#| label: Defining time to event/ last f/u
+
+clin_df$overall_survival <- ifelse(clin_df$deceased, # Shorthand for clin_df$deceased == TRUE
+                                   clin_df$overall_survival <- clin_df$days_to_death,
+                                   clin_df$overall_survival <- clin_df$days_to_last_follow_up)
+```
+
+
+We can then create our fit using the survfit and Surv functions:
+
+
+```{r}
+#| label: Kaplan Meier of gender versus survival
+
+fit <- survfit(Surv(overall_survival, deceased) ~ gender, data=clin_df)
+print(fit)
+ggsurvplot(fit, data = clin_df, pval = TRUE, risk.table = TRUE)
+```
+
+
+Although the p value is significant we can see that there is a lot of crossover of curves here suggesting that some of the Kaplan Meier assumptions have been violated and that this analysis may not be valid. Note that the syntax for the risk table seems to have changed since the example was written and I have updated this to work
+
+### Survival by stage
+
+The example contains a very nice example of how to simplify staging that I can cross-apply to other data such as the GDO dataset:
+
+
+```{r}
+#| label: Stage versus survival prep
+
+# remove any of the letters "a", "b" or "c", but only if they are at the end
+# of the name, eg "stage iiia" would become simply "stage iii"
+clin_df$ajcc_pathologic_stage = gsub("[ABC]$", "", clin_df$ajcc_pathologic_stage)
+
+# let's see how many patients we have for each stage
+print(table(clin_df$ajcc_pathologic_stage))
+```
+
+
+In the example they find too few stage IV patients and lump them with the stage IIIs. In this case it is not a problem but I __should__ go back and remove the AJCC8 patients as these will be confounded by p16. I can now look at survival by stage. The example overwrites its fit which I dislike as it creates ambiguity as to what the object represents depending on run order when analysing in the editor so I create a new object for this
+
+
+```{r}
+#| label: KM stage versus survival
+
+fit2 <- survfit(Surv(overall_survival, deceased) ~ ajcc_pathologic_stage, data=clin_df)
+print(fit2)
+ggsurvplot(fit2, data = clin_df, pval = TRUE, risk.table = TRUE)
+
+```
+
+
+TO DO: filter out by oropharyngeal and AJCC7
+
+As the example rightly states, the power of the TCGA dataset is its gene regulation data. We have disregarded this in the above survival analysis having figured out how to identify differentially expressed genes previously (heatmap, PCA etc.). We are now going to marry the two analyses to look at survival by gene.
+
+## The relationship between gene expression and survival
+
+Earlier we looked at the top differentially expressed genes between the relevant states. In this case it was mainly tumour vs normal tissue. This returns the most differentially expressed genes (I believe that the default is 100 though we later filtered to just show the top 20 and thereby make graphs more interpretable).
+
+Now we will look at the top gene and then see whether this relates to survival.
+
+
+```{r}
+#| label: Select top gene
+
+genes_df <- limma_res$topGenes
+# genes_df$gene_name[1] 
+genes_df[1, "gene_name"]
+
+# get the ensembl gene id of the first row
+gene_id <- genes_df[1, "gene_id"]
+
+# also get the common gene name of the first row
+gene_name <- genes_df[1, "gene_name"]
+
+```
+
+
+### Getting expression results from the limma result
+
+
+```{r}
+# get the actual expression matrix from the limma result object.
+# we transpose it because we want genes in the columns and patients in the rows
+expr_df <- t(limma_res$voomObj$E)
+
+# let's show the first five genes for the first five patients
+expr_df[1:5, 1:5]
+
+```
+
+```{r}
+#| label: Plot differential expression
+
+# visualize the gene expression distribution on the diseased samples (in black)
+# versus the healthy samples (in red)
+expr_diseased <- expr_df[rownames(clin_df), gene_id]
+expr_healthy <- expr_df[setdiff(rownames(expr_df), rownames(clin_df)), gene_id]
+
+boxplot(expr_diseased, expr_healthy,
+        names = c("Diseased", "Healthy"), 
+        main = "Distribution of gene expression")
+
+# I want to see this with stats
+
+library(ggpubr)
+
+expr_diseased2 <- as.data.frame(expr_diseased)
+expr_diseased2$label <- "Tumour"
+colnames(expr_diseased2)[1] <- "expr"
+
+expr_healthy2 <- as.data.frame(expr_healthy)
+expr_healthy2$label <- "Normal Tissue"
+colnames(expr_healthy2)[1] <- "expr"
+
+expr_for_plot <- rbind(expr_diseased2, expr_healthy2)
+
+# Putting tumour level first to make plot look better (avoid clash with stats)
+expr_for_plot$label <- factor(expr_for_plot$label,
+                              levels = c("Tumour", "Normal Tissue"))
+
+ggplot(data = expr_for_plot, aes(x = label, y = expr)) +
+  geom_boxplot(colour = "midnight blue") +
+  stat_compare_means() +
+  theme_classic() +
+  labs(title = paste("Comparison of", gene_name, "expression between groups"),
+       y = "Expression level", x = "")
+
+# Wow, that was a lot of wrangling simplhy to get this into ggplot. 
+# I need to figure out how to do this more smoothly without spending so much time
+# getting data from wide to long!
+```
+
+
+The above tells us that on average diseased samples have a lower expression of the `r gene_name` gene but does not tell us whether the gene's expression level has an effect on prognosis. Lets turn this around, in that case, to be able to provide that answer.
+
+### Influence of expression on prognosis
+
+This is done simply with the median value of expression of the gene of interest
+
+
+```{r}
+#| label: Survival based on more or less than median expression
+
+# get the expression values for the selected gene
+clin_df$gene_value <- expr_df[rownames(clin_df), gene_id] # Note that this only selects diseased!
+
+# find the median value of the gene and print it
+median_value <- median(clin_df$gene_value)
+median_value
+
+# divide patients in two groups, up and down regulated.
+# if the patient expression is greater or equal to them median we put it
+# among the "up-regulated", otherwise among the "down-regulated"
+clin_df$gene <- ifelse(clin_df$gene_value >= median_value, "UP", "DOWN")
+
+# we can fit a survival model, like we did in the previous section
+fit = survfit(Surv(overall_survival, deceased) ~ gene, data=clin_df)
+
+# we can extract the survival p-value and print it
+pval <- surv_pvalue(fit, data=clin_df)$pval
+pval
+
+ggsurvplot(fit, data=clin_df, pval=T, risk.table=T, title=paste(gene_name))
+```
+
+
+There is stunningly little difference here. Note that the above code removed the normal tissue samples from the list (as it should) so we're comparing surviaval between cancer patients only i.e. this tells us about the differential effect of the expression level on a gene on survival between cancer patients. This does not tell us how important the gene is compared to a normal patient i.e. if a gene was really important in defining a cancer cell it wouldn't necessarily matter how expressed it was if ALL cancer patients had differential expression to normal tissue!
+
+## Functionalising the effect of expression on survival for multiple genes
+
+Looking at the top ten genes that came out of my analysis _before_ Benjamini-Hochberg adjustment for multiple tests:
+
+
+```{r}
+#| label: Top 10 genes copied from exercies
+
+for (i in 1:10) {
+    # get the ensembl gene id of the i-th row
+    gene_id <- genes_df[i, "gene_id"]
+
+    # also get the common gene name of the i-th row
+    gene_name <- genes_df[i, "gene_name"]
+
+    # get the expression values for the selected gene
+    clin_df$gene_value = expr_df[rownames(clin_df), gene_id]
+
+    # find the median value of the gene
+    median_value = median(clin_df$gene_value)
+
+    # divide patients in two groups, up and down regulated.
+    # if the patient expression is greater or equal to them median we put it
+    # among the "up-regulated", otherwise among the "down-regulated"
+    clin_df$gene = ifelse(clin_df$gene_value >= median_value, "UP", "DOWN")
+
+    # we can now run survival like we did in the previous section
+    fit = survfit(Surv(overall_survival, deceased) ~ gene, data=clin_df)
+    survp = ggsurvplot(fit, data=clin_df, pval=T, risk.table=T, title=paste(gene_name))
+    print(survp) 
+    # we can save the survival plot to file, try it by uncommenting it
+    # ggsave(file=paste0(gene_name, ".pdf"), print(survp))
+
+    # let's also save the p-value for later.. you'll see why :)
+    genes_df[i, "surv_pv"] = surv_pvalue(fit, data=clin_df)$pval
+}
+```
+
+
+Applying the Benjamini-Hochberg correction to correct the p values
+
+
+```{r}
+p.adjust(genes_df$surv_pv, method = "BH") # default length is length(genes_df$surv_pv)
+```
+
+
+## Understanding results
+
+The above results tell us that the top 10 genes that came out of the initial analysis of normal versus cancer tissue are non-predictive of survival. I think that this is correct. I have to check that this is a true comparison of normal vs diseased tissue. Though this is important, I think that differential expressions between cancers themselves may be of interest. The problem is that any analysis in this dataset that segregated genes by survival would not then be testable unless we kept behind a test set (i.e. analyse a training set and then trial on a test set). This kind of approach is probably best kept for after the classification section of hte exercise or even trialling different test methods prior to 'wasting' the data on this sort of analysis. Either way, I am curious as to whether any ot the 'Top Genes' which initially contained 100 gene names carries any survival prediction so will run the above loop for the top 100 genes:
+
+
+```{r}
+#| label: Top 100 genes copied from exercies
+
+for (i in 1:100) {
+    # get the ensembl gene id of the i-th row
+    gene_id <- genes_df[i, "gene_id"]
+
+    # also get the common gene name of the i-th row
+    gene_name <- genes_df[i, "gene_name"]
+
+    # get the expression values for the selected gene
+    clin_df$gene_value = expr_df[rownames(clin_df), gene_id]
+
+    # find the median value of the gene
+    median_value = median(clin_df$gene_value)
+
+    # divide patients in two groups, up and down regulated.
+    # if the patient expression is greater or equal to them median we put it
+    # among the "up-regulated", otherwise among the "down-regulated"
+    clin_df$gene = ifelse(clin_df$gene_value >= median_value, "UP", "DOWN")
+
+    # we can now run survival like we did in the previous section
+    fit = survfit(Surv(overall_survival, deceased) ~ gene, data=clin_df)
+    survp = ggsurvplot(fit, data=clin_df, pval=T, risk.table=T, title=paste(gene_name))
+    print(survp) 
+    # we can save the survival plot to file, try it by uncommenting it
+    # ggsave(file=paste0(gene_name, ".pdf"), print(survp))
+
+    # let's also save the p-value for later.. you'll see why :)
+    genes_df[i, "surv_pv"] = surv_pvalue(fit, data=clin_df)$pval
+}
+
+p.adjust(genes_df$surv_pv, method = "BH") # default length is length(genes_df$surv_pv)
+```
+
