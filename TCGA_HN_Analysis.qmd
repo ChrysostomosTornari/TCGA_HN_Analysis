@@ -5,10 +5,9 @@ date: last-modified
 execute:
   cache: true
 format:
-  pdf
-  # html: 
-  #   code-fold: true
-  #   toc: true
+  html:
+    code-fold: true
+    toc: true
 ---
 
 ## Background
@@ -745,7 +744,7 @@ p.adjust(genes_df$surv_pv, method = "BH") # default length is length(genes_df$su
 
 ## Understanding results
 
-The above results tell us that the top 10 genes that came out of the initial analysis of normal versus cancer tissue are non-predictive of survival. I think that this is correct. I have to check that this is a true comparison of normal vs diseased tissue. Though this is important, I think that differential expressions between cancers themselves may be of interest. The problem is that any analysis in this dataset that segregated genes by survival would not then be testable unless we kept behind a test set (i.e. analyse a training set and then trial on a test set). This kind of approach is probably best kept for after the classification section of hte exercise or even trialling different test methods prior to 'wasting' the data on this sort of analysis. Either way, I am curious as to whether any ot the 'Top Genes' which initially contained 100 gene names carries any survival prediction so will run the above loop for the top 100 genes:
+The above results tell us that the top 10 genes that came out of the initial analysis of normal versus cancer tissue are non-predictive of survival. I think that this is correct. I have to check that this is a true comparison of normal vs diseased tissue. Though this is important, I think that differential expressions between cancers themselves may be of interest. The problem is that any analysis in this dataset that segregated genes by survival would not then be testable unless we kept behind a test set (i.e. analyse a training set and then trial on a test set). This kind of approach is probably best kept for after the classification section of the exercise or even trialling different test methods prior to 'wasting' the data on this sort of analysis. Either way, I am curious as to whether any ot the 'Top Genes' which initially contained 100 gene names carries any survival prediction so will run the above loop for the top 100 genes:
 
 ```{r}
 #| label: Top 100 genes copied from exercies
