@@ -56,7 +56,7 @@ The TCGA biolinks package installed and loaded in the above code block provides 
 -   `GDCdownload` downloads raw versions of the desired files
 -   `GDCprepare` puts them into an R-analysable format
 
-You can use `head(getGDCprojects())` to look at the available projects but I already knwow the identity of the project I need from manually browsing [TCGA](https://portal.gdc.cancer.gov/) and searching for H&N. Here is a summary of the H&N SCC data:
+You can use `head(getGDCprojects())` to look at the available projects but I already knwow the identity of the project I need from manually browsing [TCGA](https://portal.gdc.cancer.gov/) and searching for H&N. This project is called TCGA-HNSC. Here is a summary of the H&N SCC data:
 
 ```{r}
 #| label: Pulling HN summary from TCGA
@@ -780,3 +780,7 @@ for (i in 1:100) {
 
 p.adjust(genes_df$surv_pv, method = "BH") # default length is length(genes_df$surv_pv)
 ```
+
+## The problem of p16
+
+I completed the above analysis and was simultaneously thinking about the problem of p16 and oropharyngeal cancer as mentioned above. I then found the publication of the TCGN-HNSC analysis. In this endeavour they actually spent a lot of time classifying whether or not the patient was p16/HRHPV positive via a variety of methods. 
